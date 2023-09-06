@@ -32,9 +32,13 @@ use ratatui::{
     widgets::{
         canvas::{Painter, Shape}},
 };
-
+const GRAY_SCALE: &str = "$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,\"^`'. ";
+pub enum CamMode {
+    Pixels,
+    Char,
+}
 pub struct CameraPic{
-    cam : Arc<Mutex<VideoCapture>>,
+    pub cam : Arc<Mutex<VideoCapture>>,
     pub  width : u16,
     pub height : u16
 }
@@ -58,6 +62,10 @@ impl CameraPic{
     }
     }
 }
+pub fn rgb2ascii(r : f32, g : f32, b : f32) -> char{
+    let gray = (0.299*r + 0.587*g + 0.114*b);
+    GRAY_SCALE.chars().nth((gray*(GRAY_SCALE.len() as f32)/255.0) as usize).unwrap()
+}
 impl Shape for CameraPic {
 
     fn draw(&self, painter: &mut Painter) {
@@ -70,8 +78,7 @@ impl Shape for CameraPic {
         self.cam.try_lock().unwrap().deref_mut().read(&mut frame).unwrap();
         opencv::imgproc::resize(&frame, &mut resize_frame, Size_ { width: (self.width as i32)*2, height: (self.height as i32)*4 }, 0.0, 0.0, 0).unwrap();
         //print!("{:?}\n",frame);
-        painter.paint(0, 0, Color::Blue);
-        for x in 0..((self.width)*2) as usize{
+        for x in 0..((self.width-2)*2) as usize{
             for y in 0..((self.height)*4) as usize{
                 let point = resize_frame
                     .ptr_2d(y as i32, x as i32)
