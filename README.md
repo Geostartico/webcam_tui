@@ -9,4 +9,5 @@ tty show the the webcam in 3 modes:
 
 Go through modes using j-k keys
 Using [Ratatui](https://github.com/ratatui-org/ratatui) rust library to write onto
-the terminal using the crossterm backend
+the terminal using the crossterm backend\
+**WARNING**: requires opencv to be installed
