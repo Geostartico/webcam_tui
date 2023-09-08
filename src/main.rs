@@ -21,7 +21,7 @@ use ratatui::{
         Terminal,
         Frame
     },
-    widgets::{block::Block, Borders, List, ListItem, canvas::{Canvas, Map, Painter, Points, Shape}},
+    widgets::{block::Block, Borders, List, ListItem, ListState, canvas::{Canvas, Map, Painter, Points, Shape}},
     backend::{Backend, CrosstermBackend}, 
     prelude::{Layout, Constraint, Direction}, 
     text::{Line, Text, self, Span},
@@ -81,22 +81,25 @@ impl Shape for Picture{
 struct TermState{
     pub cam : CameraPic,
     selected_mode : CamMode,
+    pub list_state : ListState
 }
 impl TermState {
     fn new(cam : CameraPic) -> Self{
-        TermState { cam: cam, selected_mode: CamMode::Pixels }
+        TermState { cam: cam, selected_mode: CamMode::Pixels, list_state : ListState::default()}
     }
     fn mode_up(&mut self){
         self.selected_mode = match self.selected_mode{
             CamMode::Char => CamMode::Pixels,
-            CamMode::Pixels => CamMode::Char
+            CamMode::Pixels => CamMode::ColorChar,
+            CamMode::ColorChar => CamMode::Char
         }
     }
 
     fn mode_down(&mut self){
         self.selected_mode = match self.selected_mode{
-            CamMode::Char => CamMode::Pixels,
-            CamMode::Pixels => CamMode::Char
+            CamMode::Char => CamMode::ColorChar,
+            CamMode::Pixels => CamMode::Char,
+            CamMode::ColorChar => CamMode::Pixels
         }
     }
 }
@@ -148,7 +151,7 @@ fn draw_sheet<B: Backend>(f: &mut Frame<B>, state : &mut TermState){
    state.cam.width = chonkers[1].width;
    state.cam.height = chonkers[1].height;
 
-   let items : Vec<&str> = vec!["Characters", "Pixels"];
+   let items : Vec<&str> = vec!["Pixels", "Characters", "ColorChar"];
 
    let list_items : Vec<ListItem> = 
        items
@@ -161,7 +164,8 @@ fn draw_sheet<B: Backend>(f: &mut Frame<B>, state : &mut TermState){
    let selector = List::new(list_items)
         .block(Block::default().borders(Borders::ALL).title("Test1"))
         .highlight_style(Style::default().fg(Color::Yellow));
-   f.render_widget(selector, chonkers[0]);
+   state.list_state.select(Some(state.selected_mode as usize));
+   f.render_stateful_widget(selector, chonkers[0], &mut state.list_state);
 
    let map = Canvas::default()
        .block(Block::default().title("World").borders(Borders::ALL))
@@ -189,7 +193,7 @@ fn draw_sheet<B: Backend>(f: &mut Frame<B>, state : &mut TermState){
                    let mut resize_frame = Mat::default();
                    state.cam.cam.try_lock().unwrap().deref_mut().read(&mut frame).unwrap();
                    opencv::imgproc::resize(&frame, &mut resize_frame, Size_ { width: (state.cam.width as i32), height: (state.cam.height as i32) }, 0.0, 0.0, 0).unwrap();
-                   for x in 0..(state.cam.width-2) as usize{
+                   for x in 0..(state.cam.width+1) as usize{
                        for y in 0..(state.cam.height) as usize{
                            let point = resize_frame
                                .ptr_2d(y as i32, x as i32)
@@ -209,7 +213,41 @@ fn draw_sheet<B: Backend>(f: &mut Frame<B>, state : &mut TermState){
                                    .add(2)
                                    .read()
                            };
-                           ctx.print(x as f64, state.cam.height as f64 - y as f64, String::from(rgb2ascii(color_r as f32, color_g as f32, color_b as f32)));
+                           ctx.print(x as f64, state.cam.height as f64 - y as f64 - 1.0, String::from(rgb2ascii(color_r as f32, color_g as f32, color_b as f32)));
+
+                       }
+                   }
+               }
+               CamMode::ColorChar => {
+                   let mut frame = Mat::default();
+                   let mut resize_frame = Mat::default();
+                   state.cam.cam.try_lock().unwrap().deref_mut().read(&mut frame).unwrap();
+                   opencv::imgproc::resize(&frame, &mut resize_frame, Size_ { width: (state.cam.width as i32), height: (state.cam.height as i32) }, 0.0, 0.0, 0).unwrap();
+                   for x in 0..(state.cam.width+1) as usize{
+                       for y in 0..(state.cam.height) as usize{
+                           let point = resize_frame
+                               .ptr_2d(y as i32, x as i32)
+                               .unwrap();
+                           let color_b : u8 = unsafe{
+                               point
+                                   .add(0)
+                                   .read()
+                           };
+                           let color_g :u8 = unsafe{
+                               point
+                                   .add(1)
+                                   .read()
+                           };
+                           let color_r : u8 = unsafe{
+                               point
+                                   .add(2)
+                                   .read()
+                           };
+                           let stl = Style::default().fg(Color::Rgb(color_r, color_g, color_b));
+                           ctx.print(x as f64, state.cam.height as f64 - y as f64 - 1.0, 
+                                     Line::styled(
+                                         String::from(rgb2ascii(color_r as f32, color_g as f32, color_b as f32)),
+                                         stl));
 
                        }
                    }

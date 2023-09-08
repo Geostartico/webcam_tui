@@ -33,10 +33,13 @@ use ratatui::{
         canvas::{Painter, Shape}},
 };
 const GRAY_SCALE: &str = "$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,\"^`'. ";
+#[derive(Clone, Copy)]
 pub enum CamMode {
     Pixels,
     Char,
+    ColorChar
 }
+pub const TOTAL_VARIANTS : i32= 3;
 pub struct CameraPic{
     pub cam : Arc<Mutex<VideoCapture>>,
     pub  width : u16,
@@ -64,7 +67,7 @@ impl CameraPic{
 }
 pub fn rgb2ascii(r : f32, g : f32, b : f32) -> char{
     let gray = (0.299*r + 0.587*g + 0.114*b);
-    GRAY_SCALE.chars().nth((gray*(GRAY_SCALE.len() as f32)/255.0) as usize).unwrap()
+    GRAY_SCALE.chars().nth((GRAY_SCALE.len() as f32 - (gray*(GRAY_SCALE.len() as f32)/255.0) - 1.0) as usize).unwrap()
 }
 impl Shape for CameraPic {
 
